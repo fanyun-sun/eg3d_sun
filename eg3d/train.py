@@ -335,6 +335,17 @@ def main(**kwargs):
             'avg_camera_pivot': [0, 0, 0],
         })
     
+    elif opts.cfg == 'rmtv_google_shoes':
+        rendering_options.update({
+            'depth_resolution': 64,
+            'depth_resolution_importance': 64,
+            'ray_start': 0.1,
+            'ray_end': 1,
+            'box_warp': 1.6,
+            'white_back': True,
+            'avg_camera_radius': 0.6,
+            'avg_camera_pivot': [0, 0, 0],
+                                                                                                    })    
     else:
         assert False, "Need to specify config"
 
