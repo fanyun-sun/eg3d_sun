@@ -233,9 +233,9 @@ class ImageFolderDataset(Dataset):
             image = np.array(image)
         if self._use_alpha:
             white = PIL.Image.new('RGB', (image.shape[0],image.shape[0]),(255,255,255))
-            image = PIL.Image.fromarray(image, mode='RGB')
-            image = PIL.Image.composite(white,image,image.split()[-1])
-            image = np.array(image)
+            image = PIL.Image.fromarray(image)
+            image = PIL.Image.composite(image, white, image.split()[-1])
+            image = np.array(image)[..., :3]
 
         if image.ndim == 2:
             image = image[:, :, np.newaxis] # HW => HWC
