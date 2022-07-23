@@ -33,8 +33,6 @@ import itertools
 import shutil
 from collections import OrderedDict, defaultdict
 import cv2
-from pydrive2.auth import GoogleAuth
-from pydrive2.drive import GoogleDrive
 from tqdm import tqdm
 import multiprocessing
 

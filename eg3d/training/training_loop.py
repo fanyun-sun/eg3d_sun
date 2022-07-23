@@ -1,10 +1,12 @@
-﻿# Copyright (c) 2021, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA CORPORATION and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA CORPORATION is strictly prohibited.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 
 """Main training loop."""
 
@@ -227,15 +229,6 @@ def training_loop(
         save_image_grid(images, os.path.join(run_dir, 'reals.png'), drange=[0,255], grid_size=grid_size)
         grid_z = torch.randn([labels.shape[0], G.z_dim], device=device).split(batch_gpu)
         grid_c = torch.from_numpy(labels).to(device).split(batch_gpu)
-
-        out = [G_ema(z=z, c=c, noise_mode='const') for z, c in zip(grid_z, grid_c)]
-
-        images = torch.cat([o['image'].cpu() for o in out]).numpy()
-        images_raw = torch.cat([o['image_raw'].cpu() for o in out]).numpy()
-        images_depth = -torch.cat([o['image_depth'].cpu() for o in out]).numpy()
-        save_image_grid(images, os.path.join(run_dir, 'fakes_init.png'), drange=[-1,1], grid_size=grid_size)
-        save_image_grid(images_raw, os.path.join(run_dir, 'fakes_raw_init.png'), drange=[-1,1], grid_size=grid_size)
-        save_image_grid(images_depth, os.path.join(run_dir, 'fakes_depth_init.png'), drange=[images_depth.min(), images_depth.max()], grid_size=grid_size)
 
     # Initialize logs.
     if rank == 0:

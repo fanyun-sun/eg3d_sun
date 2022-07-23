@@ -5,14 +5,10 @@
 # To view a copy of this license, visit
 # http://creativecommons.org/licenses/by-nc-sa/4.0/ or send a letter to
 # Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
-#
-# Includes modifications proposed by Jeremy Fix
-# from here: https://github.com/NVlabs/ffhq-dataset/pull/3
 
 """Download Flickr-Faces-HQ (FFHQ) dataset to current working directory."""
 
 import os
-import re
 import sys
 import requests
 import html
@@ -32,9 +28,6 @@ import itertools
 import shutil
 from collections import OrderedDict, defaultdict
 import cv2
-from pydrive2.auth import GoogleAuth
-from pydrive2.drive import GoogleDrive
-from tqdm import tqdm
 PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True # avoid "Decompressed Data Too Large" error
 
 #----------------------------------------------------------------------------
@@ -139,52 +132,6 @@ def download_file(session, file_spec, stats, chunk_size=128, num_attempts=10):
 
 #----------------------------------------------------------------------------
 
-def pydrive_create_drive_manager(cmd_auth):
-    gAuth = GoogleAuth()
-
-    if cmd_auth:
-        gAuth.CommandLineAuth()
-    else:
-        gAuth.LocalWebserverAuth()
-
-    gAuth.Authorize()
-    print("authorized access to google drive API!")
-
-    drive: GoogleDrive = GoogleDrive(gAuth)
-    return drive
-
-
-def pydrive_extract_files_id(drive, link):
-    try:
-        fileID = re.search(r"(?<=/d/|id=|rs/).+?(?=/|$)", link)[0]  # extract the fileID
-        return fileID
-    except Exception as error:
-        print("error : " + str(error))
-        print("Link is probably invalid")
-        print(link)
-
-
-def pydrive_download_file(drive, spec, stats, chunk_size=128, num_attempts=10):
-    link = spec['file_url']
-    save_path = spec['file_path']
-    id = pydrive_extract_files_id(drive, link)
-    file_dir = os.path.dirname(save_path)
-    if file_dir:
-        os.makedirs(file_dir, exist_ok=True)
-
-    pydrive_file = drive.CreateFile({'id': id})
-    for attempts_left in reversed(range(num_attempts)):
-        try:
-            pydrive_file.GetContentFile(save_path)
-            break
-        except:
-            if not attempts_left:
-                raise
-    stats['files_done'] += 1
-    stats['bytes_done'] += os.stat(save_path).st_size
-
-#----------------------------------------------------------------------------
-
 def choose_bytes_unit(num_bytes):
     b = int(np.rint(num_bytes))
     if b < (100 << 0): return 'B', (1 << 0)
@@ -205,7 +152,7 @@ def format_time(seconds):
 
 #----------------------------------------------------------------------------
 
-def download_files(file_specs, drive=None, num_threads=32, status_delay=0.2, timing_window=50, **download_kwargs):
+def download_files(file_specs, num_threads=32, status_delay=0.2, timing_window=50, **download_kwargs):
 
     # Determine which files to download.
     done_specs = {spec['file_path']: spec for spec in file_specs if os.path.isfile(spec['file_path'])}
@@ -222,7 +169,7 @@ def download_files(file_specs, drive=None, num_threads=32, status_delay=0.2, tim
     exception_queue = queue.Queue()
     for spec in missing_specs:
         spec_queue.put(spec)
-    thread_kwargs = dict(spec_queue=spec_queue, exception_queue=exception_queue, stats=stats, drive=drive, download_kwargs=download_kwargs)
+    thread_kwargs = dict(spec_queue=spec_queue, exception_queue=exception_queue, stats=stats, download_kwargs=download_kwargs)
     for _thread_idx in range(min(num_threads, len(missing_specs))):
         threading.Thread(target=_download_thread, kwargs=thread_kwargs, daemon=True).start()
 
@@ -259,15 +206,12 @@ def download_files(file_specs, drive=None, num_threads=32, status_delay=0.2, tim
         except queue.Empty:
             pass
 
-def _download_thread(spec_queue, exception_queue, stats, drive, download_kwargs):
+def _download_thread(spec_queue, exception_queue, stats, download_kwargs):
     with requests.Session() as session:
         while not spec_queue.empty():
             spec = spec_queue.get()
             try:
-                if drive is not None:
-                    pydrive_download_file(drive, spec, stats, **download_kwargs)
-                else:
-                    download_file(session, spec, stats, **download_kwargs)
+                download_file(session, spec, stats, **download_kwargs)
             except:
                 exception_queue.put(sys.exc_info())
 
@@ -319,13 +263,9 @@ def recreate_aligned_images_fast(json_data, dst_dir='realign1024x1024', output_s
         os.makedirs(dst_dir, exist_ok=True)
         shutil.copyfile('LICENSE.txt', os.path.join(dst_dir, 'LICENSE.txt'))
     print(len(json_data))
-    for item_idx, item in tqdm(enumerate(json_data.values()), total=len(json_data)):
-        if item_idx >= start_index:#: and item_idx <= start_index+5000:
-            dst_subdir = os.path.join(dst_dir, '%05d' % (item_idx - item_idx % 1000))
-            img_filename = os.path.join(dst_subdir, '%05d.png' % item_idx)
-            if os.path.isfile(img_filename): continue
-
-            # print('\r%d / %d ... ' % (item_idx, len(json_data)), end='', flush=True)
+    for item_idx, item in enumerate(json_data.values()):
+        if item_idx >= start_index and item_idx <= start_index+5000:
+            print('\r%d / %d ... ' % (item_idx, len(json_data)), end='', flush=True)
 
             # Parse landmarks.
             # pylint: disable=unused-variable
@@ -379,7 +319,7 @@ def recreate_aligned_images_fast(json_data, dst_dir='realign1024x1024', output_s
                 img = img.resize(rsize, PIL.Image.ANTIALIAS)
                 quad /= shrink
                 qsize /= shrink
-            # print("shrink--- %s seconds ---" % (time.time() - start_time))
+            print("shrink--- %s seconds ---" % (time.time() - start_time))
 
             # Crop.
             start_time = time.time()
@@ -389,7 +329,7 @@ def recreate_aligned_images_fast(json_data, dst_dir='realign1024x1024', output_s
             if crop[2] - crop[0] < img.size[0] or crop[3] - crop[1] < img.size[1]:
                 img = img.crop(crop)
                 quad -= crop[0:2]
-            # print("crop--- %s seconds ---" % (time.time() - start_time))
+            print("crop--- %s seconds ---" % (time.time() - start_time))
 
             # Pad.
             start_time = time.time()
@@ -411,14 +351,14 @@ def recreate_aligned_images_fast(json_data, dst_dir='realign1024x1024', output_s
                 img += (median - img) * np.clip(mask, 0.0, 1.0)
                 img = PIL.Image.fromarray(np.uint8(np.clip(np.rint(img), 0, 255)), 'RGB')
                 quad += pad[:2]
-            # print("pad--- %s seconds ---" % (time.time() - start_time))
+            print("pad--- %s seconds ---" % (time.time() - start_time))
 
             # Transform.
             start_time = time.time()
             img = img.transform((transform_size, transform_size), PIL.Image.QUAD, (quad + 0.5).flatten(), PIL.Image.BILINEAR)
             if output_size < transform_size:
                 img = img.resize((output_size, output_size), PIL.Image.ANTIALIAS)
-            # print("transform--- %s seconds ---" % (time.time() - start_time))
+            print("transform--- %s seconds ---" % (time.time() - start_time))
 
             # Save aligned image.
             dst_subdir = os.path.join(dst_dir, '%05d' % (item_idx - item_idx % 1000))
@@ -430,15 +370,10 @@ def recreate_aligned_images_fast(json_data, dst_dir='realign1024x1024', output_s
 
 #----------------------------------------------------------------------------
 
-def run(tasks, start_index, pydrive, cmd_auth, **download_kwargs):
-    if pydrive:
-        drive = pydrive_create_drive_manager(cmd_auth)
-    else:
-        drive = None
-
+def run(tasks, start_index, **download_kwargs):
     if not os.path.isfile(json_spec['file_path']) or not os.path.isfile('LICENSE.txt'):
         print('Downloading JSON metadata...')
-        download_files([json_spec, license_specs['json']], drive=drive, **download_kwargs)
+        download_files([json_spec, license_specs['json']], **download_kwargs)
 
     print('Parsing JSON metadata...')
     with open(json_spec['file_path'], 'rb') as f:
@@ -460,7 +395,7 @@ def run(tasks, start_index, pydrive, cmd_auth, **download_kwargs):
     if len(specs):
         print('Downloading %d files...' % len(specs))
         np.random.shuffle(specs) # to make the workload more homogeneous
-        download_files(specs, drive=drive, **download_kwargs)
+        download_files(specs, **download_kwargs)
 
     if 'align' in tasks:
         recreate_aligned_images_fast(json_data, dst_dir="realign1500", output_size=1500, start_index=start_index)
@@ -481,9 +416,7 @@ def run_cmdline(argv):
     parser.add_argument('--timing_window',      help='samples for estimating download eta (default: 50)', type=int, default=50, metavar='LEN')
     parser.add_argument('--chunk_size',         help='chunk size for each download thread (default: 128)', type=int, default=128, metavar='KB')
     parser.add_argument('--num_attempts',       help='number of download attempts per file (default: 10)', type=int, default=10, metavar='NUM')
-    parser.add_argument('--start_index',        help='start index for alignment (default: 0)', type=int, default=0, metavar='NUM')
-    parser.add_argument('--pydrive',            help='use pydrive interface to download files. it overrides google drive quota limitation this requires google credentials (default: False)', action='store_true')
-    parser.add_argument('--cmd_auth',           help='use command line google authentication when using pydrive interface (default: False)', action='store_true')
+    parser.add_argument('--start_index',       help='start index for alignment (default: 0)', type=int, default=0, metavar='NUM')
 
     args = parser.parse_args()
     if not args.tasks:

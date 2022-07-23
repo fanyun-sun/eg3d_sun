@@ -1,10 +1,12 @@
-# Copyright (c) 2021, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA CORPORATION and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA CORPORATION is strictly prohibited.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 
 """Streaming images and labels from datasets created with dataset_tool.py."""
 
@@ -168,7 +170,6 @@ class ImageFolderDataset(Dataset):
         self._zipfile = None
         self._res = resolution
         self._use_alpha = use_alpha
-        resolution = int(resolution)
 
         if os.path.isdir(self._path):
             self._type = 'dir'
@@ -225,11 +226,6 @@ class ImageFolderDataset(Dataset):
                 image = pyspng.load(f.read())
             else:
                 image = np.array(PIL.Image.open(f))
-                image = PIL.Image.open(f).resize((256,256), PIL.Image.LANCZOS)
-                white = PIL.Image.new('RGB', (256,256), (255,255,255))
-                image = PIL.Image.composite(white, image, image.split()[-1])
-                image = np.array(image)
-
 
         if not self._res is None and not int(self._res) == image.shape[0]:
             image = PIL.Image.fromarray(image)

@@ -1,7 +1,8 @@
-Copyright (c) 2021, NVIDIA Corporation & affiliates. All rights reserved.
+Copyright (c) 2021-2022, NVIDIA Corporation & affiliates. All rights
+reserved.
 
 
-NVIDIA Source Code License for StyleGAN3
+NVIDIA Source Code License for EG3D
 
 
 =======================================================================
@@ -54,16 +55,17 @@ copy of this License.
     3.1) will continue to apply to the Work itself.
 
     3.3 Use Limitation. The Work and any derivative works thereof only
-    may be used or intended for use non-commercially. Notwithstanding
-    the foregoing, NVIDIA and its affiliates may use the Work and any
-    derivative works commercially. As used herein, "non-commercially"
-    means for research or evaluation purposes only.
+    may be used or intended for use non-commercially. The Work or
+    derivative works thereof may be used or intended for use by NVIDIA
+    or it’s affiliates commercially or non-commercially. As used
+    herein, "non-commercially" means for research or evaluation
+    purposes only and not for any direct or indirect monetary gain.
 
     3.4 Patent Claims. If you bring or threaten to bring a patent claim
     against any Licensor (including any claim, cross-claim or
     counterclaim in a lawsuit) to enforce any patents that you allege
     are infringed by any Work, then your rights under this License from
-    such Licensor (including the grant in Section 2.1) will terminate
+    such Licensor (including the grants in Sections 2.1) will terminate
     immediately.
 
     3.5 Trademarks. This License does not grant any rights to use any
@@ -71,8 +73,8 @@ copy of this License.
     as necessary to reproduce the notices described in this License.
 
     3.6 Termination. If you violate any term of this License, then your
-    rights under this License (including the grant in Section 2.1) will
-    terminate immediately.
+    rights under this License (including the grants in Sections 2.1)
+    will terminate immediately.
 
 4. Disclaimer of Warranty.
 

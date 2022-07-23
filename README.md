@@ -68,9 +68,9 @@ This release contains an interactive model visualization tool that can be used t
 python visualizer.py
 ```
 
-<!-- See [`docs/visualizer_how_to.mp4`](./docs/visualizer_how_to.mp4)
- -->
- 
+See the [`Visualizer Guide`](./docs/visualizer_guide.md) for a description of important options.
+
+
 ## Using networks from Python
 
 You can use pre-trained networks in your own Python code as follows:
@@ -90,8 +90,8 @@ The pickle contains three networks. `'G'` and `'D'` are instantaneous snapshots 
 The generator consists of two submodules, `G.mapping` and `G.synthesis`, that can be executed separately. They also support various additional options:
 
 ```.python
-w = G.mapping(z, c, truncation_psi=0.5, truncation_cutoff=8)
-img = G.synthesis(w, noise_mode='const', force_fp32=True)
+w = G.mapping(z, conditioning_params, truncation_psi=0.5, truncation_cutoff=8)
+img = G.synthesis(w, camera_params)['image]
 ```
 
 Please refer to [`gen_samples.py`](eg3d/gen_samples.py) for complete code example.
@@ -100,21 +100,30 @@ Please refer to [`gen_samples.py`](eg3d/gen_samples.py) for complete code exampl
 
 Datasets are stored as uncompressed ZIP archives containing uncompressed PNG files and a metadata file `dataset.json` for labels. Each label is a 25-length list of floating point numbers, which is the concatenation of the flattened 4x4 camera extrinsic matrix and flattened 3x3 camera intrinsic matrix. Custom datasets can be created from a folder containing images; see `python dataset_tool.py --help` for more information. Alternatively, the folder can also be used directly as a dataset, without running it through `dataset_tool.py` first, but doing so may lead to suboptimal performance.
 
-**FFHQ**:
+**FFHQ**: Download and process the [Flickr-Faces-HQ dataset](https://github.com/NVlabs/ffhq-dataset) using the following commands.
 
+1. Ensure the [Deep3DFaceRecon_pytorch](https://github.com/sicxu/Deep3DFaceRecon_pytorch/tree/6ba3d22f84bf508f0dde002da8fff277196fef21) submodule is properly initialized
+```.bash
+git submodule update --init --recursive
+```
+
+2. Run the following commands
 ```.bash
 cd dataset_preprocessing/ffhq
 python runme.py
 ```
 
-**AFHQv2**:
+**AFHQv2**: Download and process the [AFHQv2 dataset](https://github.com/clovaai/stargan-v2/blob/master/README.md#animal-faces-hq-dataset-afhq) with the following.
 
+1. Download the AFHQv2 images zipfile from the [StarGAN V2 repository](https://github.com/clovaai/stargan-v2/)
+2. Run the following commands:
 ```.bash
 cd dataset_preprocessing/afhq
-python runme.py
+python runme.py "path/to/downloaded/afhq.zip"
 ```
 
-**ShapeNet Cars**:
+**ShapeNet Cars**: Download and process renderings of the cars category of [ShapeNet](https://shapenet.org/) using the following commands.
+NOTE: the following commands download renderings of the ShapeNet cars from the [Scene Representation Networks repository](https://www.vincentsitzmann.com/srns/).
 
 ```.bash
 cd dataset_preprocessing/shapenet
@@ -143,6 +152,8 @@ python train.py --outdir=~/training-runs --cfg=shapenet --data=~/datasets/cars_t
 python train.py --outdir=~/training-runs --cfg=afhq --data=~/datasets/afhq.zip \
   --gpus=8 --batch=32 --gamma=5 --aug=ada --neural_rendering_resolution_final=128 --gen_pose_cond=True --gpc_reg_prob=0.8
 ```
+
+Please see the [Training Guide](./docs/training_guide.md) for a guide to setting up a training run on your own data.
 
 Please see [Models](./docs/models.md) for recommended training configurations and download links for pre-trained checkpoints.
 

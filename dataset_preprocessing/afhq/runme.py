@@ -1,3 +1,14 @@
+# SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+#
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
+
+import argparse
 import os
 import sys
 import shutil
@@ -6,10 +17,16 @@ import subprocess
 
 import gdown
 
+parser = argparse.ArgumentParser()
+parser.add_argument('inzip', type=str) # the AFHQ zip downloaded from starganV2 (https://github.com/clovaai/stargan-v2)
+parser.add_argument('outzip', type=str, required=False, default='processed_afhq.zip') # this is the output path to write the new zip
+args = parser.parse_args()
+
+
 eg3d_root = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..')
 
-download_name = 'afhq.zip'
-output_dataset_name = 'afhq.zip'
+input_dataset_path = os.path.realpath(args.inzip)
+output_dataset_path = os.path.realpath(args.outzip)
 
 dataset_tool_path = os.path.join(eg3d_root, 'eg3d', 'dataset_tool.py')
 mirror_tool_path = os.path.join(eg3d_root, 'dataset_preprocessing', 'mirror_dataset.py')
@@ -28,14 +45,10 @@ except Exception as e:
 
 with tempfile.TemporaryDirectory() as working_dir:
     cmd = f"""
-        URL=https://www.dropbox.com/s/scckftx13grwmiv/afhq_v2.zip?dl=0;
-        ZIP_FILE={working_dir}/'afhq_v2.zip';
-        wget -N $URL -O $ZIP_FILE;
-        zip -FF $ZIP_FILE --out {working_dir}/repaired.zip;
-        unzip {working_dir}/repaired.zip -d {working_dir}/extracted_images;
+        unzip {input_dataset_path} -d {working_dir}/extracted_images;
         mv {working_dir}/extracted_images/train/cat/ {working_dir}/cat_images/;
     """
-    subprocess.run([cmd], shell=True)
+    subprocess.run([cmd], shell=True, check=True)
 
 
     """Download dataset.json file"""
@@ -49,14 +62,14 @@ with tempfile.TemporaryDirectory() as working_dir:
             --source={working_dir}/cat_images \
             --dest={working_dir}/mirrored_images
     """
-    subprocess.run([cmd], shell=True)
+    subprocess.run([cmd], shell=True, check=True)
 
 
     print("Creating dataset zip...")
     cmd = f"""
         python {dataset_tool_path} \
             --source {working_dir}/mirrored_images \
-            --dest {output_dataset_name} \
+            --dest {output_dataset_path} \
             --resolution 512x512
     """
-    subprocess.run([cmd], shell=True)
+    subprocess.run([cmd], shell=True, check=True)

@@ -1,10 +1,12 @@
-﻿# Copyright (c) 2021, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
 #
-# NVIDIA CORPORATION and its licensors retain all intellectual property
-# and proprietary rights in and to this software, related documentation
-# and any modifications thereto.  Any use, reproduction, disclosure or
-# distribution of this software and related documentation without an express
-# license agreement from NVIDIA CORPORATION is strictly prohibited.
+# NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
+# property and proprietary rights in and to this material, related
+# documentation and any modifications thereto. Any use, reproduction,
+# disclosure or distribution of this material and related documentation
+# without an express license agreement from NVIDIA CORPORATION or
+# its affiliates is strictly prohibited.
 
 """Train a GAN using the techniques described in the paper
 "Efficient Geometry-aware 3D Generative Adversarial Networks."
@@ -102,16 +104,9 @@ def launch_training(c, desc, outdir, dry_run):
 
 #----------------------------------------------------------------------------
 
-def init_dataset_kwargs(data,opts):
+def init_dataset_kwargs(data):
     try:
-        dataset_kwargs = dnnlib.EasyDict(class_name='training.dataset.ImageFolderDataset', 
-                                         path=data, 
-                                         use_labels=True, 
-                                         max_size=None, 
-                                         xflip=False,
-                                         resolution = opts.data_image_resolution, 
-                                         use_alpha = opts.use_alpha_background,
-                                        )
+        dataset_kwargs = dnnlib.EasyDict(class_name='training.dataset.ImageFolderDataset', path=data, use_labels=True, max_size=None, xflip=False)
         dataset_obj = dnnlib.util.construct_class_by_name(**dataset_kwargs) # Subclass of training.dataset.Dataset.
         dataset_kwargs.resolution = dataset_obj.resolution # Be explicit about resolution.
         dataset_kwargs.use_labels = dataset_obj.has_labels # Be explicit about labels.
@@ -175,7 +170,7 @@ def parse_comma_separated_list(s):
 @click.option('--neural_rendering_resolution_initial', help='Resolution to render at', metavar='INT',  type=click.IntRange(min=1), default=64, required=False)
 @click.option('--neural_rendering_resolution_final', help='Final resolution to render at, if blending', metavar='INT',  type=click.IntRange(min=1), required=False, default=None)
 @click.option('--neural_rendering_resolution_fade_kimg', help='Kimg to blend resolution over', metavar='INT',  type=click.IntRange(min=0), required=False, default=1000, show_default=True)
-@click.option('--data_image_resolution', help='During dataloading what resolution do you want, assume square resolution. If not specified, it will use the data images resolution', metavar='INT',  type=click.Choice(["128", "256", "512"]), required=False, default=None)
+@click.option('--data_image_resolution', help='During dataloading what resolution do you want, assume square resolution. If not specified, it will use the data images resolution', metavar='INT',  type=int, required=False, default=None)
 @click.option('--use_alpha_background', help='Could use the alpha channel for creating white background', metavar='BOOL',  type=bool, required=False, default=False)
 
 @click.option('--blur_fade_kimg', help='Blur over how many', metavar='INT',  type=click.IntRange(min=1), required=False, default=200)
@@ -184,6 +179,7 @@ def parse_comma_separated_list(s):
 @click.option('--c-noise', help='Add noise for generator pose conditioning.', metavar='FLOAT',  type=click.FloatRange(min=0), required=False, default=0)
 @click.option('--gpc_reg_prob', help='Strength of swapping regularization. None means no generator pose conditioning, i.e. condition with zeros.', metavar='FLOAT',  type=click.FloatRange(min=0), required=False, default=0.5)
 @click.option('--gpc_reg_fade_kimg', help='Length of swapping prob fade', metavar='INT',  type=click.IntRange(min=0), required=False, default=1000)
+@click.option('--disc_c_noise', help='Strength of discriminator pose conditioning regularization, in standard deviations.', metavar='FLOAT',  type=click.FloatRange(min=0), required=False, default=0)
 @click.option('--sr_noise_mode', help='Type of noise for superresolution', metavar='STR',  type=click.Choice(['random', 'none']), required=False, default='none')
 @click.option('--resume_blur', help='Enable to blur even on resume', metavar='BOOL',  type=bool, required=False, default=False)
 @click.option('--sr_num_fp16_res',    help='Number of fp16 layers in superresolution', metavar='INT', type=click.IntRange(min=0), default=4, required=False, show_default=True)
@@ -233,11 +229,14 @@ def main(**kwargs):
     c.data_loader_kwargs = dnnlib.EasyDict(pin_memory=True, prefetch_factor=2)
 
     # Training set.
-    c.training_set_kwargs, dataset_name = init_dataset_kwargs(data=opts.data,opts=opts)
+    c.training_set_kwargs, dataset_name = init_dataset_kwargs(data=opts.data)
     if opts.cond and not c.training_set_kwargs.use_labels:
         raise click.ClickException('--cond=True requires labels specified in dataset.json')
     c.training_set_kwargs.use_labels = opts.cond
     c.training_set_kwargs.xflip = opts.mirror
+    if opts.data_image_resolution is not None:
+        c.training_set_kwargs.resolution = opts.data_image_resolution
+    c.training_set_kwargs.use_alpha = opts.use_alpha_background
 
     # Hyperparameters & settings.
     c.num_gpus = opts.gpus
@@ -274,7 +273,7 @@ def main(**kwargs):
     c.D_kwargs.class_name = 'training.dual_discriminator.DualDiscriminator'
     c.G_kwargs.fused_modconv_default = 'inference_only' # Speed up training by using regular convolutions instead of grouped convolutions.
     c.loss_kwargs.filter_mode = 'antialiased' # Filter mode for raw images ['antialiased', 'none', float [0-1]]
-    c.D_kwargs.disc_c_noise = 0 # Regularization for discriminator pose conditioning
+    c.D_kwargs.disc_c_noise = opts.disc_c_noise # Regularization for discriminator pose conditioning
 
     if c.training_set_kwargs.resolution == 512:
         sr_module = 'training.superresolution.SuperresolutionHybrid8XDC'
@@ -282,7 +281,9 @@ def main(**kwargs):
         sr_module = 'training.superresolution.SuperresolutionHybrid4X'
     elif c.training_set_kwargs.resolution == 128:
         sr_module = 'training.superresolution.SuperresolutionHybrid2X'
-
+    else:
+        assert False, f"Unsupported resolution {c.training_set_kwargs.resolution}; make a new superresolution module"
+    
     if opts.sr_module != None:
         sr_module = opts.sr_module
     
@@ -333,17 +334,7 @@ def main(**kwargs):
             'avg_camera_radius': 1.7,
             'avg_camera_pivot': [0, 0, 0],
         })
-    elif opts.cfg == 'rmtv_google_shoes':
-        rendering_options.update({
-            'depth_resolution': 64,
-            'depth_resolution_importance': 64,
-            'ray_start': 0.1,
-            'ray_end': 1,
-            'box_warp': 1.6,
-            'white_back': True,
-            'avg_camera_radius': 0.6,
-            'avg_camera_pivot': [0, 0, 0],
-        })    
+    
     else:
         assert False, "Need to specify config"
 
