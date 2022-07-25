@@ -181,7 +181,13 @@ class ImageFolderDataset(Dataset):
             raise IOError('Path must point to a directory or zip')
 
         PIL.Image.init()
-        self._image_fnames = sorted(fname for fname in self._all_fnames if self._file_ext(fname) in PIL.Image.EXTENSION)
+        #self._image_fnames = sorted(fname for fname in self._all_fnames if self._file_ext(fname) in PIL.Image.EXTENSION)
+        with self._open_file('dataset_.json') as f:
+            labels = json.load(f)['labels']
+        labels = dict(labels)
+        self._image_fnames = sorted(labels.keys())
+        print(len(self._image_fnames), len(labels))
+
         if len(self._image_fnames) == 0:
             raise IOError('No image files found in the specified path')
 
@@ -243,7 +249,7 @@ class ImageFolderDataset(Dataset):
         return image
 
     def _load_raw_labels(self):
-        fname = 'dataset.json'
+        fname = 'dataset_.json'
         if fname not in self._all_fnames:
             return None
         with self._open_file(fname) as f:
